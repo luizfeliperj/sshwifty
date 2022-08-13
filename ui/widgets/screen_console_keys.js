@@ -481,6 +481,22 @@ export const consoleScreenKeys = [
         },
       ],
       [
+        "Ctrl+T",
+        {
+          altKey: false,
+          charCode: 0,
+          code: "KeyT",
+          ctrlKey: true,
+          key: "t",
+          keyCode: 84,
+          location: 0,
+          metaKey: false,
+          repeat: false,
+          shiftKey: false,
+          which: 84,
+        },
+      ],
+      [
         "Ctrl+Z",
         {
           altKey: false,

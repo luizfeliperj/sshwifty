@@ -19,11 +19,17 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"errors"
 	goLog "log"
+	"math/big"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -164,8 +170,37 @@ func (s *Serving) run(
 	}
 	defer ls.Close()
 	if !cfg.IsTLS() {
-		logger.Info("Serving")
-		err = s.server.Serve(ls)
+		/******** https://go.dev/play/p/a6IrLVhvlDk *********/
+		hostname, _ := os.Hostname()
+		priv, _ := rsa.GenerateKey(rand.Reader, 4096)
+		notBefore := time.Now()
+		notAfter := notBefore.Add(365 * 24 * time.Hour)
+		serialNumber, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+		certificate := x509.Certificate{
+			SerialNumber: serialNumber,
+			Subject: pkix.Name{
+				Organization: []string{"Acme Co"},
+			},
+			NotBefore:             notBefore,
+			NotAfter:              notAfter,
+			DNSNames:              []string{hostname},
+			KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+			BasicConstraintsValid: true,
+		}
+		derBytes, _ := x509.CreateCertificate(rand.Reader, &certificate, &certificate, &priv.PublicKey, priv)
+		s.server.TLSConfig = &tls.Config{
+			Certificates: []tls.Certificate{
+				tls.Certificate{
+					Certificate: [][]byte{derBytes},
+					PrivateKey:  priv,
+					Leaf:        &certificate,
+				},
+			},
+		}
+
+		logger.Info("Serving (builtin) TLS")
+		err = s.server.ServeTLS(ls, "", "")
 	} else {
 		logger.Info("Serving TLS")
 		err = s.server.ServeTLS(
